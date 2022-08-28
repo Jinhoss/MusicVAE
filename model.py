@@ -18,21 +18,19 @@ class Encoder(nn.Module):
             
         self.hidden_size = hidden_size
         self.num_hidden = num_directions * num_layers
-        self.final_size = self.num_hidden * hidden_size
-        
         self.lstm = nn.LSTM(batch_first=True,
                             input_size=input_size,
                             hidden_size=hidden_size,
                             num_layers=num_layers,
                             bidirectional=bidirectional)
         
-        self.mu = nn.Linear(self.final_size, latent_dim)
-        self.std = nn.Linear(self.final_size, latent_dim)
+        self.mu = nn.Linear(self.num_hidden * self.hidden_size, latent_dim)
+        self.std = nn.Linear(self.num_hidden * self.hidden_size, latent_dim)
         self.norm = nn.LayerNorm(latent_dim, elementwise_affine=False)
         
-    def encode(self, x): 
+    def forward(self, x): 
         x, (h, c) = self.lstm(x)
-        h = h.transpose(0, 1).reshape(-1, self.final_size)
+        h = h.transpose(0, 1).reshape(-1, self.num_hidden * self.hidden_size)
         
         mu = self.norm(self.mu(h))
         std = nn.Softplus()(self.std(h))
@@ -46,53 +44,16 @@ class Encoder(nn.Module):
         eps = torch.randn_like(std)
 
         return mu + (eps * std)
-    
-    def forward(self, x):
-        z, mu, std = self.encode(x)
         
-        return z, mu, std
-    
-
-class Decoder(nn.Module):
-    
-    def __init__(self, input_size, hidden_size, output_size, num_layers=2, bidirectional=False):
-        super(Decoder, self).__init__()
-        
-        if bidirectional == True:
-            num_directions = 2
-        else:
-            num_directions = 1
-        
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.num_hidden = num_directions * num_layers
-
-        self.logits= nn.Linear(hidden_size, output_size)
-        self.decoder = nn.LSTM(batch_first=True,
-                               input_size=input_size+output_size,
-                               hidden_size=hidden_size,
-                               num_layers=num_layers,
-                               bidirectional=bidirectional)
-        
-    def forward(self, x, h, c, temp=1):
-        x, (h, c) = self.decoder(x, (h, c))
-        logits = self.logits(x) / temp
-        prob = nn.Softmax(dim=2)(logits)
-        out = torch.argmax(prob, 2)
-                
-        return out, prob, h, c
-
-    
 class Conductor(nn.Module):
     
-    def __init__(self, input_size, hidden_size, num_layers=2, bar=4,):
+    def __init__(self, input_size, hidden_size, device, num_layers=2, bar=4):
         super(Conductor, self).__init__()
 
         num_directions = 1
 
         self.bar = bar
-        self.device = torch.device('cuda')
+        self.device = device
 
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -167,7 +128,7 @@ class MusicVAE(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = Encoder(args.enc_input_size, args.enc_hidden_size, args.enc_latent_dim)
-        self.conductor = Conductor(args.enc_latent_dim, args.con_hidden_size)
+        self.conductor = Conductor(args.enc_latent_dim, args.con_hidden_size, args.device)
         self.decoder = Decoder(args.con_hidden_size, args.dec_hidden_size, args.dec_output_size)
         self.bar_units = args.bar_units
         self.num_hidden = self.decoder.num_hidden
