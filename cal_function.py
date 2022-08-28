@@ -15,5 +15,5 @@ def vae_loss(recon_x, x, mu, std, beta=0):
     
     return BCE + (beta * KLD)
 
-def kl_annealing(epoch, start, end, rate=0.9):
+def kl_cycle(epoch, start, end, rate=0.9):
     return end + (start - end)*(rate)**epoch

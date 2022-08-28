@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 from time import time
-from cal_function import accuracy, kl_annealing, vae_loss
+from cal_function import accuracy, kl_cycle, vae_loss
 
 
 def train(args, train_loader, val_loader, model, optimizer):
@@ -28,7 +28,7 @@ def train(args, train_loader, val_loader, model, optimizer):
             x_train = x_train.to(device)         
             optimizer.zero_grad()     
             x_train_prob, x_train_mu, x_train_std, x_train_label = model(x_train)
-            beta = kl_annealing(i, 0, 0.2)
+            beta = kl_cycle(i, 0, 0.2)
             loss = loss_fn(x_train_prob, x_train, x_train_mu, x_train_std, beta)
             loss.backward()
             optimizer.step()          

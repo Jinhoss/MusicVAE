@@ -177,7 +177,7 @@ def transform_to_midi(array, fs, comp=9):
     
     # initialize
     pm = pretty_midi.PrettyMIDI()
-    inst = pretty_midi.Instrument(program=32, is_drum=True)
+    inst = pretty_midi.Instrument(program=0, is_drum=True)
     pm.instruments.append(inst)
     
     for i, inst_in_click in enumerate(binary_idx):
